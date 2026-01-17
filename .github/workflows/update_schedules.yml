@@ -2,15 +2,13 @@ name: Actualizar Horarios Renfe
 
 on:
   schedule:
-    # Se ejecuta todos los lunes a las 00:00 UTC
     - cron: '0 0 * * 1'
   workflow_dispatch:
-    # Permite ejecución manual desde la web de GitHub
   push:
     branches:
       - main
     paths:
-      - 'gtfs-extractor.js'
+      - 'gtfs-extractor.cjs'
 
 jobs:
   update-data:
@@ -30,7 +28,7 @@ jobs:
         run: sudo apt-get install -y unzip
 
       - name: Ejecutar extractor de horarios
-        run: node gtfs-extractor.js
+        run: node gtfs-extractor.cjs
 
       - name: Commit y Push de los cambios
         run: |
