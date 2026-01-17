@@ -1,7 +1,6 @@
 /**
  * GTFS Extractor para Cercanías Cádiz
- * Este script descarga los datos oficiales de Renfe y genera el JSON para la PWA.
- * Optimizado para ejecución local y automática (GitHub Actions).
+ * Nombre: gtfs-extractor.cjs (La extensión .cjs evita errores de módulos ES)
  */
 
 const fs = require('fs');
@@ -13,29 +12,25 @@ const GTFS_URL = 'https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_tra
 const OUTPUT_DIR = './public/data';
 const TEMP_DIR = './temp_gtfs';
 
-// IDs oficiales de estaciones del núcleo de Cádiz (C1 y C1a)
 const CADIZ_STATION_IDS = [
-    '51405', '51404', '51403', '51402', '51401', // Cádiz ciudad
-    '51306', '51305', '51304', '51303', '51302', // San Fernando / Puerto Real / Valdelagrana
-    '51301', '51201', '51202', '51310'           // El Puerto / Jerez / Aeropuerto / Universidad
+    '51405', '51404', '51403', '51402', '51401', 
+    '51306', '51305', '51304', '51303', '51302', 
+    '51301', '51201', '51202', '51310'           
 ];
 
 async function run() {
     console.log('🚀 Iniciando proceso de actualización de datos...');
 
     try {
-        // Asegurar directorios
         if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
         if (fs.existsSync(TEMP_DIR)) fs.rmSync(TEMP_DIR, { recursive: true, force: true });
         fs.mkdirSync(TEMP_DIR);
 
         const zipPath = path.join(TEMP_DIR, 'gtfs.zip');
 
-        // 1. Descarga
         console.log('📥 Descargando GTFS desde Renfe...');
         await downloadFile(GTFS_URL, zipPath);
 
-        // 2. Extracción
         console.log('📦 Extrayendo archivos del dataset...');
         if (process.platform === 'win32') {
             execSync(`powershell Expand-Archive -Path ${zipPath} -DestinationPath ${TEMP_DIR} -Force`);
@@ -43,13 +38,11 @@ async function run() {
             execSync(`unzip -o ${zipPath} -d ${TEMP_DIR}`);
         }
 
-        // 3. Procesamiento
         console.log('🔍 Filtrando servicios de la Bahía de Cádiz...');
         
         const trips = parseCSV(path.join(TEMP_DIR, 'trips.txt'));
         const stopTimes = parseCSV(path.join(TEMP_DIR, 'stop_times.txt'));
 
-        // Mapeo de paradas por trayecto
         const schedules = {};
         stopTimes.forEach(st => {
             if (CADIZ_STATION_IDS.includes(st.stop_id)) {
@@ -65,12 +58,9 @@ async function run() {
         const finalData = [];
         Object.keys(schedules).forEach(tripId => {
             const tripStops = schedules[tripId].sort((a, b) => a.seq - b.seq);
-            
-            // Solo guardamos trayectos que tengan sentido (más de una parada en nuestra zona)
             if (tripStops.length > 1) {
                 const tripInfo = trips.find(t => t.trip_id === tripId);
                 const routeId = tripInfo ? tripInfo.route_id : '';
-                
                 finalData.push({
                     id: tripId,
                     line: routeId.includes('C1A') ? 'C1a' : 'C1',
@@ -79,21 +69,17 @@ async function run() {
             }
         });
 
-        // 4. Guardado final
         const outputPath = path.join(OUTPUT_DIR, 'schedules_cadiz.json');
         fs.writeFileSync(outputPath, JSON.stringify({
             lastUpdate: new Date().toISOString(),
             services: finalData
         }, null, 2));
 
-        console.log(`✅ Proceso finalizado con éxito.`);
-        console.log(`📝 Archivo generado: ${outputPath} (${finalData.length} servicios)`);
-
-        // Limpieza
+        console.log(`✅ Proceso finalizado. Archivo generado: ${outputPath}`);
         fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 
     } catch (error) {
-        console.error('❌ Error crítico durante la ejecución:', error.message);
+        console.error('❌ Error crítico:', error.message);
         process.exit(1);
     }
 }
@@ -118,7 +104,6 @@ function parseCSV(filePath) {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split(/\r?\n/);
     if (lines.length === 0) return [];
-
     const headers = lines[0].trim().split(',');
     return lines.slice(1)
         .filter(line => line.trim())
@@ -126,7 +111,6 @@ function parseCSV(filePath) {
             const values = line.split(',');
             const obj = {};
             headers.forEach((h, i) => {
-                // Limpiar posibles comillas de los valores CSV
                 obj[h] = values[i] ? values[i].replace(/"/g, '') : '';
             });
             return obj;
