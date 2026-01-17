@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowUpDown, 
   MapPin, 
   Search, 
   ChevronDown, 
-  Clock, 
   TrainFront,
-  Info,
-  Navigation
+  Info
 } from 'lucide-react';
 
 // --- CONSTANTES ---
@@ -29,28 +27,8 @@ const STATIONS = [
   { id: '51202', name: 'Aeropuerto de Jerez' }
 ].sort((a, b) => a.name.localeCompare(b.name));
 
-// --- COMPONENTES ---
-
-const Loading = () => (
-  <div className="flex flex-col items-center justify-center h-48 w-full">
-    <motion.svg width="120" height="40" viewBox="0 0 120 40" fill="none">
-      <path d="M10 35H110" stroke="#38bdf8" strokeWidth="2" strokeOpacity="0.3" />
-      <motion.path
-        d="M20 25H100L110 35H10L20 25Z"
-        stroke="#38bdf8"
-        strokeWidth="2"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-    </motion.svg>
-    <p className="text-blue-200/60 text-sm font-medium mt-4 tracking-wider animate-pulse">CARGANDO HORARIOS REALES</p>
-  </div>
-);
-
 const TimeCard = ({ service, index }: { service: any, index: number }) => {
   const [expanded, setExpanded] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<'upcoming' | 'transit' | 'passed'>('upcoming');
 
   useEffect(() => {
@@ -61,13 +39,9 @@ const TimeCard = ({ service, index }: { service: any, index: number }) => {
       const depDate = new Date(); depDate.setHours(depH, depM, 0, 0);
       const arrDate = new Date(); arrDate.setHours(arrH, arrM, 0, 0);
 
-      if (now < depDate) { setStatus('upcoming'); setProgress(0); }
-      else if (now > arrDate) { setStatus('passed'); setProgress(100); }
-      else {
-        setStatus('transit');
-        const elapsed = now.getTime() - depDate.getTime();
-        setProgress((elapsed / (arrDate.getTime() - depDate.getTime())) * 100);
-      }
+      if (now < depDate) setStatus('upcoming');
+      else if (now > arrDate) setStatus('passed');
+      else setStatus('transit');
     };
     update();
     const t = setInterval(update, 30000);
@@ -88,7 +62,6 @@ const TimeCard = ({ service, index }: { service: any, index: number }) => {
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${service.line === 'C1a' ? 'bg-orange-500' : 'bg-blue-600'}`}>
             {service.line}
           </span>
-          <span className="text-white/40 text-[10px] font-mono">{service.durationMinutes} MIN</span>
         </div>
         
         <div className="flex justify-between items-center">
@@ -126,31 +99,24 @@ const TimeCard = ({ service, index }: { service: any, index: number }) => {
   );
 };
 
-// --- APP PRINCIPAL ---
-
 export default function App() {
   const [origin, setOrigin] = useState<string | null>(null);
   const [destination, setDestination] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [rawServices, setRawServices] = useState<any[]>([]);
   const [activeModal, setActiveModal] = useState<'origin' | 'dest' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Cargar datos reales al iniciar
   useEffect(() => {
-    fetch('/data/schedules_cadiz.json')
+    // CAMBIO: Usamos './' en lugar de '/' para que funcione en GitHub Pages (subcarpeta)
+    fetch('./data/schedules_cadiz.json')
       .then(res => res.json())
       .then(data => setRawServices(data.services))
-      .catch(() => console.log("Usando simulación: falta archivo schedules_cadiz.json"));
+      .catch((e) => console.log("Error cargando datos reales:", e));
   }, []);
 
-  // 2. Filtrar horarios
   const results = useMemo(() => {
-    if (!origin || !destination) return [];
+    if (!origin || !destination || rawServices.length === 0) return [];
     
-    // Si no hay datos cargados, devolvemos simulación (para desarrollo)
-    if (rawServices.length === 0) return [];
-
     return rawServices.filter(svc => {
       const idxO = svc.stops.findIndex((s: any) => s.id === origin);
       const idxD = svc.stops.findIndex((s: any) => s.id === destination);
@@ -162,7 +128,7 @@ export default function App() {
         ...svc,
         departureTime: stopO.t,
         arrivalTime: stopD.t,
-        durationMinutes: 0, // Cálculo de duración omitido para brevedad
+        durationMinutes: 0, 
         stops: svc.stops.slice(svc.stops.indexOf(stopO), svc.stops.indexOf(stopD) + 1)
       };
     }).sort((a, b) => a.departureTime.localeCompare(b.departureTime));
@@ -172,7 +138,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans selection:bg-blue-500/30 overflow-x-hidden">
-      {/* Luces de fondo (Estética Glass) */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[50%] rounded-full bg-blue-600/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[50%] rounded-full bg-cyan-600/10 blur-[120px]" />
@@ -187,7 +152,6 @@ export default function App() {
           <Info size={20} className="text-slate-500 mb-1" />
         </header>
 
-        {/* Card de búsqueda Glassmorphism */}
         <section className="bg-white/5 border border-white/10 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl mb-8 relative">
           <div className="space-y-4">
             <button onClick={() => setActiveModal('origin')} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-900/50 border border-white/5 text-left">
@@ -199,7 +163,7 @@ export default function App() {
             </button>
 
             <div className="absolute right-10 top-1/2 -translate-y-1/2 z-20">
-              <button onClick={() => { const t = origin; setOrigin(destination); setDestination(t); }} className="p-3 bg-blue-600 rounded-full shadow-xl hover:scale-110 transition-transform active:rotate-180 duration-500">
+              <button onClick={() => { const t = origin; setOrigin(destination); setDestination(t); }} className="p-3 bg-blue-600 rounded-full shadow-xl">
                 <ArrowUpDown size={20} className="text-white" />
               </button>
             </div>
@@ -214,7 +178,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Resultados */}
         <section className="flex-1">
           {(!origin || !destination) ? (
             <div className="py-20 text-center opacity-20 flex flex-col items-center">
@@ -236,7 +199,6 @@ export default function App() {
         </footer>
       </main>
 
-      {/* Modal de selección */}
       <AnimatePresence>
         {activeModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md p-6 flex flex-col">
@@ -250,7 +212,6 @@ export default function App() {
                 {filteredStations.map(s => (
                   <button key={s.id} onClick={() => { if (activeModal === 'origin') setOrigin(s.id); else setDestination(s.id); setActiveModal(null); setSearchQuery(''); }} className="w-full text-left p-4 rounded-2xl hover:bg-white/5 transition-colors flex items-center justify-between">
                     <span className="font-medium text-slate-200">{s.name}</span>
-                    <MapPin size={14} className="text-slate-600" />
                   </button>
                 ))}
               </div>
