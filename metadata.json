@@ -1,0 +1,5 @@
+{
+  "name": "Cercanías Bahía de Cádiz",
+  "description": "Una PWA ultra-rápida y elegante para consultar horarios de trenes en la Bahía de Cádiz con estética Glassmorphism.",
+  "requestFramePermissions": []
+}
